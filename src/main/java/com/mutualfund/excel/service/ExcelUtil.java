@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Component
@@ -83,37 +82,6 @@ public class ExcelUtil {
                 .map(fund -> LocalDate.parse(fund.getNavObjectList().getLast().getDate(), AppConstants.FORMATTER))
                 .max(LocalDate::compareTo)
                 .orElse(LocalDate.now());
-    }
-
-    private void extracted(Workbook workbook, String categoryName, List<Fund> fundList) {
-        List<FundData> bestFunds = new ArrayList<>();
-        Sheet sheet = workbook.createSheet(categoryName);
-        int rowNum = 0;
-
-
-        for (int i = 0; i < fundList.size() - 2; i++) {
-            for (int j = i + 1; j < fundList.size() - 1; j++) {
-                for (int k = j + 1; k < fundList.size(); k++) {
-                    // Calculate the FundData for each fund in the combination
-                    LocalDate latestInceptionDate = Collections.max(Arrays.asList(
-                            LocalDate.parse(fundList.get(i).getNavObjectList().getLast().getDate(), AppConstants.FORMATTER),
-                            LocalDate.parse(fundList.get(j).getNavObjectList().getLast().getDate(), AppConstants.FORMATTER),
-                            LocalDate.parse(fundList.get(k).getNavObjectList().getLast().getDate(), AppConstants.FORMATTER)
-                    ));
-
-                    FundData fundDataI = calculateFundData(fundList.get(i), latestInceptionDate);
-                    FundData fundDataJ = calculateFundData(fundList.get(j), latestInceptionDate);
-                    FundData fundDataK = calculateFundData(fundList.get(k), latestInceptionDate);
-
-                    // Find the fund with the highest Sharpe ratio in the combination
-                    FundData bestFund = Collections.max(Arrays.asList(fundDataI, fundDataJ, fundDataK),
-                            Comparator.comparing(FundData::getSharpe));
-
-                    // Add the best fund to the list
-                    bestFunds.add(bestFund);
-                }
-            }
-        }
     }
 
     private List<Fund> populateFundList(List<String> urls) {
@@ -187,7 +155,7 @@ public class ExcelUtil {
     }
 
     private static List<Double> getDoubles(List<NavObject> navsAfterDate) {
-        Integer rollingPeriod = 246;  // 1-year rolling period for a market with 252 trading days
+        Integer rollingPeriod = 246;  // 1-year rolling period for a market with 246 NSE trading days
         List<Double> dailyReturns = new ArrayList<>();
         for (int i = 1; i < navsAfterDate.size(); i++) {
             double prevNav = Double.parseDouble(navsAfterDate.get(i - 1).getNav());
@@ -205,78 +173,5 @@ public class ExcelUtil {
         }
         return rollingReturns;
     }
-
-    private void processCategory1(Workbook workbook, String categoryName, List<String> urls) {
-        RestTemplate restTemplate = new RestTemplate();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-
-        List<Fund> fundList = new ArrayList<>();
-        for (String url : urls) {
-            String response = restTemplate.getForObject(url, String.class);
-            JSONObject jsonObject = new JSONObject(response);
-            String schemeName = jsonObject.getJSONObject("meta").getString("scheme_name");
-            JSONArray dataArray = jsonObject.getJSONArray("data");
-
-            Fund fund = new Fund();
-            List<NavObject> navObjectList = new ArrayList<>();
-            dataArray.forEach(
-                    item -> {
-                        JSONObject data = (JSONObject) item;
-                        NavObject navObject = new NavObject();
-                        navObject.setDate(data.getString("date"));
-                        navObject.setNav(data.getString("nav"));
-                        navObjectList.add(navObject);
-                    }
-            );
-            fund.setSchemaName(schemeName);
-            fund.setNavObjectList(navObjectList);
-            fundList.add(fund);
-
-        }
-
-        Sheet sheet = workbook.createSheet(categoryName);
-
-        int rowNum = 0;
-
-        for (int i = 0; i < fundList.size() - 2; i++) {
-            for (int j = i + 1; j < fundList.size() - 1; j++) {
-                for (int k = j + 1; k < fundList.size(); k++) {
-                    LocalDate latestInceptionDate = Collections.max(Arrays.asList(
-                            LocalDate.parse(fundList.get(i).getNavObjectList().getLast().getDate(), formatter),
-                            LocalDate.parse(fundList.get(j).getNavObjectList().getLast().getDate(), formatter),
-                            LocalDate.parse(fundList.get(k).getNavObjectList().getLast().getDate(), formatter)
-                    ));
-
-                    Row row = sheet.createRow(rowNum++);
-                    row.createCell(0).setCellValue(fundList.get(i).getSchemaName());
-                    Double average = calculateAverage(fundList.get(i).getNavObjectList(), latestInceptionDate);
-                    Double standardDeviation = calculateStandardDeviation(fundList.get(i).getNavObjectList(),average);
-                    Double sharpe = (average - 7)/standardDeviation;
-                    row.createCell(1).setCellValue(average);
-                    row.createCell(2).setCellValue(standardDeviation);
-                    row.createCell(3).setCellValue(sharpe);
-                    row = sheet.createRow(rowNum++);
-                    average = calculateAverage(fundList.get(j).getNavObjectList(), latestInceptionDate);
-                    standardDeviation = calculateStandardDeviation(fundList.get(j).getNavObjectList(),average);
-                    sharpe = (average - 7)/standardDeviation;
-                    row.createCell(0).setCellValue(fundList.get(j).getSchemaName());
-                    row.createCell(1).setCellValue(average);
-                    row.createCell(2).setCellValue(standardDeviation);
-                    row.createCell(3).setCellValue(sharpe);
-                    row = sheet.createRow(rowNum++);
-                    average = calculateAverage(fundList.get(k).getNavObjectList(), latestInceptionDate);
-                    standardDeviation = calculateStandardDeviation(fundList.get(k).getNavObjectList(),average);
-                    sharpe = (average - 7)/standardDeviation;
-                    row.createCell(0).setCellValue(fundList.get(k).getSchemaName());
-                    row.createCell(1).setCellValue(average);
-                    row.createCell(2).setCellValue(standardDeviation);
-                    row.createCell(3).setCellValue(sharpe);
-                    rowNum++;  // Add an empty row after each combination
-                }
-            }
-        }
-
-    }
-
 
 }
