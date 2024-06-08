@@ -39,7 +39,7 @@ public class ExcelUtil {
             if (!Double.isNaN(fundData.getAverageReturns()) ||
                     !Double.isNaN(fundData.getStandardDeviation()) ||
                     !Double.isNaN(fundData.getSharpe())) {
-                log.info("Values for scheme : {}  - avg : {}, std dev : {}, sharpe : {}", fundData.getFund().getSchemaName(),
+                log.info("Values for scheme : {} - avg : {}, std dev : {}, sharpe : {}", fundData.getFund().getSchemaName(),
                         fundData.getAverageReturns(), fundData.getStandardDeviation(), fundData.getSharpe());
 
                 // If none of the values are NaN, create the row and set cell values
