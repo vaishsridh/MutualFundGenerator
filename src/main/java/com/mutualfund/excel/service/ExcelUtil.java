@@ -40,7 +40,7 @@ public class ExcelUtil {
                     !Double.isNaN(fundData.getStandardDeviation()) ||
                     !Double.isNaN(fundData.getSharpe())) {
                 log.info("Values for scheme : {}  - avg : {}, std dev : {}, sharpe : {}", fundData.getFund().getSchemaName(),
-                        fundData.getAverageReturns(), fundData.getSharpe());
+                        fundData.getAverageReturns(), fundData.getStandardDeviation(), fundData.getSharpe());
 
                 // If none of the values are NaN, create the row and set cell values
                 Row row = sheet.createRow(i);
@@ -155,7 +155,7 @@ public class ExcelUtil {
     }
 
     private static List<Double> getDoubles(List<NavObject> navsAfterDate) {
-        Integer rollingPeriod = 246;  // 1-year rolling period for a market with 246 NSE trading days
+        int rollingPeriod = 246;  // 1-year rolling period for a market with 246 NSE trading days
         List<Double> dailyReturns = new ArrayList<>();
         for (int i = 1; i < navsAfterDate.size(); i++) {
             double prevNav = Double.parseDouble(navsAfterDate.get(i - 1).getNav());
