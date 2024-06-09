@@ -19,7 +19,7 @@ import java.util.*;
 public class ExcelUtil {
 
     Logger log = LoggerFactory.getLogger(ExcelUtil.class);
-    private static final String[] columnNames = {"Scheme Name", "Inception Dt", "Calc. from", "Average Returns", "Standard Deviation", "Sharpe Ratio"};
+    private static final String[] columnNames = {"Scheme Name", "Inception Dt", "Calc. from", "Avg 1-y roll. ret (in %)", "Std Dev (Risk in %)", "Sharpe Ratio"};
 
 
     Map<String, Fund> fundMap = new HashMap<>();
@@ -56,6 +56,12 @@ public class ExcelUtil {
             cell.setCellStyle(headerCellStyle);
         }
 
+        // Define the number format with two decimal places
+        CellStyle decimalCellStyle = workbook.createCellStyle();
+        DataFormat format = workbook.createDataFormat();
+        short decimalFormat = format.getFormat("#0.00"); // Define the format with two decimal places
+        decimalCellStyle.setDataFormat(decimalFormat);
+
         sheet.createFreezePane(1,0);
         for (int i = 0; i < Math.min(topFunds.size(), 10); i++) {
             FundData fundData = topFunds.get(i);
@@ -65,9 +71,18 @@ public class ExcelUtil {
             row.createCell(0).setCellValue(fundData.getFund().getSchemaName());
             row.createCell(1).setCellValue(fundData.getFund().getInceptionDate().toString());
             row.createCell(2).setCellValue(fundData.getCalcInceptionDate().toString());
-            row.createCell(3).setCellValue(fundData.getAverageReturns());
-            row.createCell(4).setCellValue(fundData.getStandardDeviation());
-            row.createCell(5).setCellValue(fundData.getSharpe());
+            // Set cell styles for "Average Returns", "Standard Deviation", and "Sharpe Ratio" columns
+            Cell averageReturnsCell = row.createCell(3);
+            averageReturnsCell.setCellValue(fundData.getAverageReturns());
+            averageReturnsCell.setCellStyle(decimalCellStyle);
+
+            Cell standardDeviationCell = row.createCell(4);
+            standardDeviationCell.setCellValue(fundData.getStandardDeviation());
+            standardDeviationCell.setCellStyle(decimalCellStyle);
+
+            Cell sharpeRatioCell = row.createCell(5);
+            sharpeRatioCell.setCellValue(fundData.getSharpe());
+            sharpeRatioCell.setCellStyle(decimalCellStyle);
         }
     }
 
