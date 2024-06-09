@@ -4,9 +4,7 @@ import com.mutualfund.excel.constants.AppConstants;
 import com.mutualfund.excel.model.Fund;
 import com.mutualfund.excel.model.FundData;
 import com.mutualfund.excel.model.NavObject;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -21,6 +19,8 @@ import java.util.*;
 public class ExcelUtil {
 
     Logger log = LoggerFactory.getLogger(ExcelUtil.class);
+    private static final String[] columnNames = {"Scheme Name", "Inception Dt", "Calc. from", "Average Returns", "Standard Deviation", "Sharpe Ratio"};
+
 
     Map<String, Fund> fundMap = new HashMap<>();
     public void processCategory(Workbook workbook, String categoryName, List<String> urls) {
@@ -29,26 +29,45 @@ public class ExcelUtil {
         List<FundData> topFunds = new ArrayList<>();
         Set<String> uniqueFunds = new HashSet<>();
         findTopFunds(fundList, new ArrayList<>(), topFunds, uniqueFunds, 0);
-
         topFunds.sort(Comparator.comparing(FundData::getSharpe).reversed());
+        writeDatatoExcel(workbook, topFunds, categoryName);
+    }
 
+    private void writeDatatoExcel(Workbook workbook, List<FundData> topFunds, String categoryName) {
         Sheet sheet = workbook.createSheet(categoryName);
+        sheet.setColumnWidth(0, 50 * 256);
+
+        for(int col = 1; col < columnNames.length + 1 ; col++) {
+            sheet.setColumnWidth(col, 20 * 256);
+        }
+
+        // Create a cell style for the header row
+        CellStyle headerCellStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerCellStyle.setFont(headerFont);
+        headerCellStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        // Create the header row
+        Row headerRow = sheet.createRow(0);
+        for (int col = 0; col < columnNames.length; col++) {
+            Cell cell = headerRow.createCell(col);
+            cell.setCellValue(columnNames[col]);
+            cell.setCellStyle(headerCellStyle);
+        }
+
+        sheet.createFreezePane(1,0);
         for (int i = 0; i < Math.min(topFunds.size(), 10); i++) {
             FundData fundData = topFunds.get(i);
             // Print fundData to Excel sheet
-            if (!Double.isNaN(fundData.getAverageReturns()) ||
-                    !Double.isNaN(fundData.getStandardDeviation()) ||
-                    !Double.isNaN(fundData.getSharpe())) {
-                log.info("Values for scheme : {} - avg : {}, std dev : {}, sharpe : {}", fundData.getFund().getSchemaName(),
-                        fundData.getAverageReturns(), fundData.getStandardDeviation(), fundData.getSharpe());
 
-                // If none of the values are NaN, create the row and set cell values
-                Row row = sheet.createRow(i);
-                row.createCell(0).setCellValue(fundData.getFund().getSchemaName());
-                row.createCell(1).setCellValue(fundData.getAverageReturns());
-                row.createCell(2).setCellValue(fundData.getStandardDeviation());
-                row.createCell(3).setCellValue(fundData.getSharpe());
-            }
+            Row row = sheet.createRow(i+1);
+            row.createCell(0).setCellValue(fundData.getFund().getSchemaName());
+            row.createCell(1).setCellValue(fundData.getFund().getInceptionDate().toString());
+            row.createCell(2).setCellValue(fundData.getCalcInceptionDate().toString());
+            row.createCell(3).setCellValue(fundData.getAverageReturns());
+            row.createCell(4).setCellValue(fundData.getStandardDeviation());
+            row.createCell(5).setCellValue(fundData.getSharpe());
         }
     }
 
@@ -108,6 +127,7 @@ public class ExcelUtil {
                 );
                 fund.setSchemaName(schemeName);
                 fund.setNavObjectList(navObjectList);
+                fund.setInceptionDate(LocalDate.parse(fund.getNavObjectList().getLast().getDate(), AppConstants.FORMATTER));
                 fundMap.put(url, fund);
                 fundList.add(fund);
             }
@@ -125,7 +145,7 @@ public class ExcelUtil {
             log.info("std dev is 0 for funds : {}", fund.getSchemaName());
         }
         double sharpe = standardDeviation!= 0 ? (average - 7) / standardDeviation : 0;
-        return new FundData(fund, average, standardDeviation, sharpe);
+        return new FundData(fund, average, standardDeviation, sharpe, latestInceptionDate);
     }
 
     private double calculateStandardDeviation(List<NavObject> navs, Double averageReturn) {
@@ -158,9 +178,23 @@ public class ExcelUtil {
         int rollingPeriod = 246;  // 1-year rolling period for a market with 246 NSE trading days
         List<Double> dailyReturns = new ArrayList<>();
         for (int i = 1; i < navsAfterDate.size(); i++) {
-            double prevNav = Double.parseDouble(navsAfterDate.get(i - 1).getNav());
+            double prevNav = 0.0;
+
+            // Find the most recent non-zero previous NAV
+            for (int j = i - 1; j >= 0; j--) {
+                prevNav = Double.parseDouble(navsAfterDate.get(j).getNav());
+                if (prevNav != 0.0) {
+                    break;
+                }
+            }
+
             double currNav = Double.parseDouble(navsAfterDate.get(i).getNav());
-            dailyReturns.add((currNav - prevNav) / prevNav);
+            // Calculate daily return only if previous NAV is non-zero
+            if (prevNav != 0.0) {
+                dailyReturns.add((currNav - prevNav) / prevNav);
+            } else {
+                dailyReturns.add(0.0); // If previous NAV is zero, assume no return (or handle as desired)
+            }
         }
 
         List<Double> rollingReturns = new ArrayList<>();
