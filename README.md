@@ -25,6 +25,8 @@ Generate combinations of 3 in each category and calculate average rolling return
 
 Implement above process recursively and print top 10.
 
+![DEMO](Mutual_funds_generator.gif)
+
 TODO : 
 Short term :
 1. Implement caching preferably by storing data in redis DB and refresh it every 24h at 11 PM IST
